@@ -1,79 +1,100 @@
-function isValidHttpUrl(input: string){
-    let url : URL;
-    try{
-        url = new URL(input);
-    } catch(_){
-        return false;
+function convertImage(image:HTMLImageElement){
+    const width = 180;
+    const height = 120;
+    const shrinkedImageUrl = createShrinkedImageUrl(image,width,height);
+    let shrinkedImage = new Image();
+    shrinkedImage.src = shrinkedImageUrl;
+    shrinkedImage.onload = function(){
+        const scaledImageUrl =  scaleAndAddGridToImageUrl(shrinkedImage,width,height);
+        let outputImage = document.getElementById('outputImage');
+        if(!(outputImage instanceof HTMLImageElement)){
+            throw new Error('convertImage():HtmlImageElement is not a HTMLImageElement');
+        }
+        outputImage.src = scaledImageUrl;
+        outputImage.onload = function(){
+            console.log('Output finished.');
+        }
     }
-    return input;
 }
-
 function loadImage(){
-    const urlBox = document.getElementById("urlBox");
-    if(!(urlBox instanceof HTMLInputElement)){
-        throw new Error("urlBox is not a HTMLInputElement");
+    console.log('Loading file...');
+    let dataUrl:string = '';
+    const fileInput = document.getElementById('fileInput');
+    if(!(fileInput instanceof HTMLInputElement)){
+        throw new Error('fileInput is not a HTMLInputElement');
     }
-    let url = isValidHttpUrl(urlBox.value);
-    if(!url){
-        window.alert("有効なurlではありません");
-        return;
+    if(!(fileInput.files instanceof FileList)){
+        throw new Error('fileInput.files is not a FileList');
     }
-    let img = new Image();
-    img.src = url;
-
-    img.onload = function(){
-        let canvas = document.getElementById('canvas');
-        if(!(canvas instanceof HTMLCanvasElement)){
-            throw new Error("canvas is not a HTMLCanvasElement"); 
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function(){
+        console.log(typeof(this.result));
+        if(typeof this.result !== 'string'){        
+            throw new Error('filereader: failed to read file.');
         }
-        let context = canvas.getContext("2d"); 
-        context.imageSmoothingEnabled = false;
-        context.drawImage(img,0,0,180,120);
-    }
-    img.onerror = function (){
-        window.alert("画像の読み込みに失敗しました");
+        const dataUrl:string = this.result;
+        let image  = new Image();
+        image.src = dataUrl;
+        image.onload = function(){
+            convertImage(image);
+        }
     }
 }
-function loadImage2(){
-    const fileBox = document.getElementById('fileBox');
-    if(!(fileBox instanceof HTMLInputElement)){
-        throw new Error("fileBox is not a HTMLInputElement");
-    }
-    let img = new Image();
-    img.src = fileBox.value;
-    img.onload = function(){
-        let canvas2 = document.getElementById('canvas2');
-        if(!(canvas2 instanceof HTMLCanvasElement)){
-            throw new Error("canvas is not a HTMLCanvasElement"); 
-        }
-        let context = canvas2.getContext("2d"); 
-        context.imageSmoothingEnabled = false;
-        context.drawImage(img,0,0,1800,1200);
-        
-        for(let x = 0;x<180;x++){
-            context.beginPath();
-            context.moveTo(x*10,0);
-            context.lineTo(x*10,1200);
-            context.stroke();
-        }
-        for(let y = 0;y<120;y++){
-            context.beginPath();
-            context.moveTo(0,y * 10);
-            context.lineTo(1800,y * 10);
-            context.stroke();
-        }
 
-        context.beginPath();
-        context.moveTo(1800,0);
-        context.lineTo(1800,1200);
-        context.stroke();
+function createShrinkedImageUrl(image:HTMLImageElement,width:number,height:number):string{
+    let canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
 
+    if(!(canvas instanceof HTMLCanvasElement)){
+        throw new Error("canvas is not a HTMLCanvasElement"); 
+    }
+    let context = canvas.getContext("2d");
+    if(!(context instanceof CanvasRenderingContext2D)){
+        throw new Error("context is not a CanvasRenderingContext2D");
+    }
+    context.imageSmoothingEnabled = false;
+    context.drawImage(image,0,0,width,height);
+
+    return canvas.toDataURL();
+}
+function scaleAndAddGridToImageUrl(image:HTMLImageElement,unscaledWidth:number,unscaledHeight:number):string{
+    let canvas2 = document.createElement('canvas');
+    canvas2.width = unscaledWidth * 10;
+    canvas2.height = unscaledHeight * 10;
+    if(!(canvas2 instanceof HTMLCanvasElement)){
+        throw new Error("canvas is not a HTMLCanvasElement"); 
+    }
+    let context = canvas2.getContext("2d");
+    if(!(context instanceof CanvasRenderingContext2D)){
+        throw new Error("context is not a CanvasRenderingContext2D");
+    } 
+    context.imageSmoothingEnabled = false;
+    context.drawImage(image,0,0,canvas2.width,canvas2.height);
+    
+    for(let x = 0;x<unscaledWidth;x++){
         context.beginPath();
-        context.moveTo(0,1200);
-        context.lineTo(1800,1200);
+        context.moveTo(x*10,0);
+        context.lineTo(x*10,canvas2.height);
         context.stroke();
     }
-    img.onerror = function (){
-        window.alert("画像の読み込みに失敗しました");
+    for(let y = 0;y<unscaledHeight;y++){
+        context.beginPath();
+        context.moveTo(0,y * 10);
+        context.lineTo(canvas2.width,y * 10);
+        context.stroke();
     }
+
+    context.beginPath();
+    context.moveTo(canvas2.width,0);
+    context.lineTo(canvas2.width,canvas2.height);
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(0,canvas2.height);
+    context.lineTo(canvas2.width,canvas2.height);
+    context.stroke();
+    return canvas2.toDataURL();
 }
